@@ -70,7 +70,7 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
 - [ ] **GitHub account** — for the agent (to store and manage code)
 - [ ] **Google Workspace account** — an email address for the agent (e.g., `agent@yourcompany.com`)
 - [ ] **Cloudflare account** (free tier works) — for the secure tunnel
-- [ ] **Tailscale account** (free for personal use) — for internal team access
+- [ ] **Tailscale account** (free for personal use) — optional, only needed if you want to access the Mac from outside your home network
 - [ ] **Google Cloud project** (free tier) — needed for Gmail push notifications
 - [ ] **Gemini API key** (free tier from Google AI Studio) — for image generation (optional)
 
@@ -157,14 +157,28 @@ macOS blocks background processes (like the Slack bot) from accessing files unle
 
 > **Why?** launchd services inherit permissions from Terminal. This one setting prevents all file-access popups.
 
-### 1.6: Install Tailscale
+### 1.6: Set It Up Physically
 
-Tailscale creates a private network between your devices — so you can access the Mac from anywhere (home, coffee shop, travelling) without exposing anything to the public internet.
+1. Plug into power (always — use a reliable outlet, ideally with a UPS/surge protector)
+2. Connect to your home WiFi (or ethernet via USB-C adapter — more reliable)
+3. **Mac mini:** Disconnect the monitor, keyboard, and mouse. Tuck it somewhere out of the way — a shelf, behind a monitor.
+4. **MacBook Air:** Close the lid. Tuck it somewhere with decent airflow — a desk, shelf, or stand. Keep it plugged in.
+5. Note the local IP address or hostname (shown in System Settings → Sharing, something like `your-mac.local`)
+
+**From your laptop** (on the same WiFi), you can now connect:
+- **Screen Sharing**: Open Finder → Go → Connect to Server → type `vnc://your-mac.local`
+- **SSH**: Open Terminal → type `ssh claudie@your-mac.local`
+
+### 1.7: Install Tailscale (Optional)
+
+> **Do you need this?** No. If you'll always manage the Mac from the same WiFi network, skip this. Tailscale is only needed if you want to SSH into the Mac from **outside your home** — a coffee shop, travelling, etc. The Slack bot itself works from anywhere via Cloudflare Tunnel regardless.
+
+Tailscale creates a private network between your devices — so you can access the Mac from anywhere without exposing anything to the public internet.
 
 1. Open the **Mac App Store**, search for **Tailscale**, install it
 2. Open Tailscale, sign in with your account (Google, GitHub, or Apple ID)
 3. In Tailscale preferences, enable **"Start Tailscale when I log in"**
-4. Note the **Tailscale IP** (something like `100.x.x.x`) — you'll need this later
+4. Note the **Tailscale IP** (something like `100.x.x.x`)
 5. **Install Tailscale on your laptop/phone too** — same account. Now both devices are on the same private network.
 
 ```bash
@@ -172,19 +186,7 @@ Tailscale creates a private network between your devices — so you can access t
 tailscale ip -4
 ```
 
-> At home you can SSH using the local address (`ssh claudie@your-mac.local`). Outside the house, use the Tailscale IP (`ssh claudie@100.x.x.x`). Both always work.
-
-### 1.7: Set It Up Physically
-
-1. Plug into power (always — use a reliable outlet, ideally with a UPS/surge protector)
-2. Connect to your home WiFi (or ethernet via USB-C adapter — more reliable)
-3. **Mac mini:** Disconnect the monitor, keyboard, and mouse. Tuck it somewhere out of the way — a shelf, behind a monitor.
-4. **MacBook Air:** Close the lid. Tuck it somewhere with decent airflow — a desk, shelf, or stand. Keep it plugged in.
-5. Note the local IP address or hostname (shown in System Settings → Sharing)
-
-**From your laptop**, you can now connect:
-- **Screen Sharing**: Open Finder → Go → Connect to Server → type `vnc://TAILSCALE_IP`
-- **SSH**: Open Terminal → type `ssh claudie@TAILSCALE_IP`
+> With Tailscale, you can SSH from anywhere: `ssh claudie@100.x.x.x`. Without it, you can only SSH when on the same WiFi: `ssh claudie@your-mac.local`.
 
 ---
 
@@ -193,7 +195,8 @@ tailscale ip -4
 From here on, you can do everything via SSH from your laptop — you don't need a monitor (or an open lid).
 
 ```bash
-ssh claudie@TAILSCALE_IP   # or ssh claudie@your-mac.local if on the same WiFi
+ssh claudie@your-mac.local   # from the same WiFi
+# or: ssh claudie@100.x.x.x  # from anywhere, if you installed Tailscale
 ```
 
 ### 2.1: Install Homebrew (Package Manager)
@@ -927,7 +930,7 @@ launchctl load ~/Library/LaunchAgents/com.claude.email-sweep.plist
 
 ## Phase 11: Set Up the File Browser
 
-This gives your team a web-based way to browse files on the dedicated Mac via Tailscale.
+This gives your team a web-based way to browse files on the dedicated Mac.
 
 ### 11.1: Create the File Browser
 
@@ -984,7 +987,9 @@ nano ~/Library/LaunchAgents/com.claude.file-browser.plist
 launchctl load ~/Library/LaunchAgents/com.claude.file-browser.plist
 ```
 
-Your team can now browse files at: `http://TAILSCALE_IP:8889`
+Your team can now browse files at:
+- **Same WiFi:** `http://your-mac.local:8889`
+- **From anywhere (if Tailscale installed):** `http://TAILSCALE_IP:8889`
 
 ---
 
@@ -1220,9 +1225,9 @@ CLOUDFLARE TUNNEL (bot.yourcompany.com)
 |  - File browser (port 8889, Tailscale)      |
 |  - Scheduled jobs (daily reports, etc.)     |
 |                                             |
-|  TAILSCALE (private network):               |
-|  - File browser at http://TAILSCALE_IP:8889 |
-|  - Team can access any web service          |
+|  TAILSCALE (optional — remote access):       |
+|  - Access file browser from anywhere        |
+|  - SSH from outside your home network       |
 +---------------------------------------------+
 ```
 
@@ -1233,7 +1238,7 @@ CLOUDFLARE TUNNEL (bot.yourcompany.com)
 | Mac (mini or MacBook Air) | The physical computer | ~$500-1,100 one-time |
 | Claude Max | AI brain (Claude Code) | $200/month |
 | Cloudflare | Secure tunnel (free tier) | Free |
-| Tailscale | Private team network | Free |
+| Tailscale | Remote access from anywhere (optional) | Free |
 | Google Workspace | Email, calendar, drive | Part of existing plan |
 | GitHub | Code storage | Free |
 | Google Cloud | Pub/Sub for email notifications | Free tier |
