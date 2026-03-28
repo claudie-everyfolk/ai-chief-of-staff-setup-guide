@@ -37,7 +37,9 @@ This guide walks you through every step — from setting up a dedicated Mac to h
 15. [Maintenance & Troubleshooting](#maintenance--troubleshooting)
 16. [Architecture Overview](#architecture-overview)
 
-> **Which messaging channel should I pick?** All three work. **Slack** is best for teams — channels, threads, file sharing. **iMessage** is the most convenient if it's just you — text your agent from your phone like texting a friend. **Telegram** is a good middle ground — works on all devices, easy setup, no Cloudflare Tunnel needed. You can set up multiple channels — they all share the same brain and memory.
+> **Which messaging channel should I pick?** All three work, and you can set up more than one — they all share the same brain and memory. **Slack** is best for teams (channels, threads, file sharing) but requires the most setup (Cloudflare Tunnel). **iMessage** is the most convenient if it's just you — text your agent from your phone like texting a friend. **Telegram** is a good middle ground — works on all devices, easy setup, no Cloudflare Tunnel needed. **Discord** is also officially supported — see [Anthropic's Channels docs](https://code.claude.com/docs/en/channels).
+>
+> Telegram and iMessage use Anthropic's official **Claude Code Channels** — built-in plugins that take a few minutes to set up. Slack uses a custom bot (more setup, but more control).
 
 ---
 
@@ -606,9 +608,19 @@ Go to Slack and send a DM to your bot. It should respond!
 
 ## Phase 5b: Telegram
 
-Telegram is the easiest channel to set up — no Cloudflare Tunnel, no webhooks, no domain needed. The bot calls out to Telegram's servers (polling), so it works behind any firewall.
+Anthropic officially supports Telegram as a **Claude Code Channel** — a built-in plugin that bridges Claude Code to Telegram. No custom bot code needed.
 
-### Create a Telegram Bot
+> **Official docs:** [code.claude.com/docs/en/channels](https://code.claude.com/docs/en/channels)
+
+### Prerequisites
+
+- **Bun** must be installed (the channel plugins run on Bun):
+
+```bash
+brew install oven-sh/bun/bun
+```
+
+### Step 1: Create a Telegram Bot
 
 1. Open Telegram on your phone or computer
 2. Search for **@BotFather** (look for the blue checkmark)
@@ -618,58 +630,30 @@ Telegram is the easiest channel to set up — no Cloudflare Tunnel, no webhooks,
 6. BotFather gives you a **bot token** (a long string like `123456789:ABCdef...`). Save this.
 7. Optional: send `/setdescription` and `/setuserpic` to customize the bot's profile
 
-### Install the Bot
+### Step 2: Install the Official Channel Plugin
+
+Open Claude Code on the Mac and run:
+
+```
+/plugin install telegram@claude-plugins-official
+```
+
+When prompted, enter your bot token.
+
+### Step 3: Launch with the Channel
 
 ```bash
-mkdir -p ~/Projects/telegram-bot
-cd ~/Projects/telegram-bot
-
-python3 -m venv venv
-source venv/bin/activate
-pip install python-telegram-bot
+claude --channels plugin:telegram@claude-plugins-official
 ```
 
-### Write or Install the Bot Script
+The first time, Claude will show a **pairing code**. Send this code to your bot in Telegram to link your account. After pairing, messages you send to the bot in Telegram will go straight to Claude Code, and Claude's responses come back through the bot.
 
-The bot follows the same pattern as the Slack bot: receive a message → spawn `claude -p` → send the response back. Key differences from Slack:
+### Step 4: Make It Always On
 
-- Uses **polling** (no webhook URL or Cloudflare Tunnel needed)
-- Telegram has a **4,096 character limit** per message, so long responses get split
-- Uses `python-telegram-bot` library (v22+, fully async)
-
-You can write the bot yourself, or use an existing project:
-- **[claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)** — full-featured, SQLite sessions, streaming
-- **[ductor](https://github.com/PleasePrompto/ductor)** (`pip install ductor`) — supports Claude CLI, live streaming via message edits
-
-### Configure
-
-Create a `.env` file:
-
-```
-TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
-AUTHORIZED_USERS=your_telegram_user_id
-PROJECT_DIR=/Users/YOUR_USERNAME
-CLAUDE_TIMEOUT=600
-```
-
-> **Finding your Telegram user ID:** Message @userinfobot on Telegram — it will reply with your numeric user ID.
-
-### Test It
+For the always-on Slack bot setup (Phase 5a), the bot.py script handles spawning Claude sessions. For Telegram as a channel, you launch Claude Code itself with the `--channels` flag. Create a launchd service:
 
 ```bash
-cd ~/Projects/telegram-bot
-source venv/bin/activate
-python bot.py
-```
-
-Message your bot on Telegram. It should respond!
-
-### Make It Always On
-
-Create a launchd service (same pattern as Slack):
-
-```bash
-nano ~/Library/LaunchAgents/com.claude.telegram-bot.plist
+nano ~/Library/LaunchAgents/com.claude.telegram-channel.plist
 ```
 
 ```xml
@@ -678,23 +662,27 @@ nano ~/Library/LaunchAgents/com.claude.telegram-bot.plist
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.claude.telegram-bot</string>
+    <string>com.claude.telegram-channel</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_USERNAME/Projects/telegram-bot/venv/bin/python</string>
-        <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot.py</string>
+        <string>/Users/YOUR_USERNAME/.local/bin/claude</string>
+        <string>--channels</string>
+        <string>plugin:telegram@claude-plugins-official</string>
+        <string>--dangerously-skip-permissions</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/YOUR_USERNAME/Projects/telegram-bot</string>
+    <string>/Users/YOUR_USERNAME</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/YOUR_USERNAME</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot.log</string>
+    <string>/Users/YOUR_USERNAME/logs/telegram-channel.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot-stderr.log</string>
+    <string>/Users/YOUR_USERNAME/logs/telegram-channel.err</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -704,63 +692,58 @@ nano ~/Library/LaunchAgents/com.claude.telegram-bot.plist
 ```
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.claude.telegram-bot.plist
+launchctl load ~/Library/LaunchAgents/com.claude.telegram-channel.plist
 ```
+
+> **No Cloudflare Tunnel needed.** The Telegram channel uses polling — the plugin calls out to Telegram's servers, not the other way around.
+
+> **Bonus: Permission relay.** The Telegram channel supports forwarding tool-approval prompts to your phone — so you can approve or deny actions remotely from Telegram.
 
 ---
 
 ## Phase 5c: iMessage
 
-Text your agent from your phone and get a response — just like texting a friend. This is the most convenient channel if it's primarily you using the agent.
+Text your agent from your phone and get a response — just like texting a friend. This is the most convenient channel if it's primarily you using the agent. Anthropic officially supports iMessage as a **Claude Code Channel**.
+
+> **Official docs:** [code.claude.com/docs/en/channels](https://code.claude.com/docs/en/channels)
 
 ### Prerequisites
 
+- **Bun** must be installed: `brew install oven-sh/bun/bun`
 - **Messages.app must be signed in** with an Apple ID on the dedicated Mac. Open Messages and sign in before closing the lid.
-- **Full Disk Access** — you already did this in Phase 1 (Step 1.5).
-- **Automation permission** — the first time a script tries to send a message, macOS will show a popup asking for permission. Click **Allow**. (Do this before closing the lid!)
+- **Full Disk Access** — you already did this in Phase 1 (Step 1.5). This lets the channel read the Messages database.
+- **Automation permission** — the first time the channel sends a message, macOS will show a popup asking for permission to control Messages.app. Click **Allow**. (Do this before closing the lid!)
 
-### Install imsg
+### Step 1: Install the Official Channel Plugin
 
-`imsg` is a command-line tool purpose-built for connecting AI agents to iMessage:
+Open Claude Code on the Mac and run:
+
+```
+/plugin install imessage@claude-plugins-official
+```
+
+No bot token needed — iMessage reads `~/Library/Messages/chat.db` directly and sends replies via AppleScript.
+
+### Step 2: Launch with the Channel
 
 ```bash
-brew install steipete/tap/imsg
+claude --channels plugin:imessage@claude-plugins-official
 ```
 
-### Test It Manually
+**Texting yourself works immediately** — send yourself an iMessage and Claude will respond.
+
+### Step 3: Allow Other Senders
+
+By default, only your own phone number/Apple ID is authorized. To let other people text the agent:
+
+```
+/imessage:access allow +15551234567
+```
+
+### Step 4: Make It Always On
 
 ```bash
-# List recent chats
-imsg chats --limit 5
-
-# Send a test message (replace with a real phone number)
-imsg send --to "+14155551234" --text "Hello from your AI agent!"
-
-# Watch for new incoming messages (Ctrl+C to stop)
-imsg watch --chat-id 1
-```
-
-### Set Up the Listener
-
-There's a ready-made project for this: **[claude-imessage](https://github.com/dvdsgl/claude-imessage)**
-
-It watches for incoming iMessages, spawns `claude -p` sessions, and sends responses back. Configuration goes in `~/.claude-imessage.env`:
-
-```
-IMESSAGE_CONTACT_PHONE=+14155551234
-IMESSAGE_CONTACT_NAME=YourName
-IMESSAGE_CHECK_INTERVAL=1
-```
-
-Or build your own — the pattern is simple:
-1. Poll the Messages database (`~/Library/Messages/chat.db`) for new messages
-2. For each new message from an authorized contact, spawn `claude -p`
-3. Send the response back via `imsg send`
-
-### Make It Always On
-
-```bash
-nano ~/Library/LaunchAgents/com.claude.imessage-bot.plist
+nano ~/Library/LaunchAgents/com.claude.imessage-channel.plist
 ```
 
 ```xml
@@ -769,23 +752,27 @@ nano ~/Library/LaunchAgents/com.claude.imessage-bot.plist
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.claude.imessage-bot</string>
+    <string>com.claude.imessage-channel</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_USERNAME/Projects/imessage-bot/venv/bin/python</string>
-        <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot.py</string>
+        <string>/Users/YOUR_USERNAME/.local/bin/claude</string>
+        <string>--channels</string>
+        <string>plugin:imessage@claude-plugins-official</string>
+        <string>--dangerously-skip-permissions</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/YOUR_USERNAME/Projects/imessage-bot</string>
+    <string>/Users/YOUR_USERNAME</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/YOUR_USERNAME</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot.log</string>
+    <string>/Users/YOUR_USERNAME/logs/imessage-channel.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot-stderr.log</string>
+    <string>/Users/YOUR_USERNAME/logs/imessage-channel.err</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -795,14 +782,14 @@ nano ~/Library/LaunchAgents/com.claude.imessage-bot.plist
 ```
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.claude.imessage-bot.plist
+launchctl load ~/Library/LaunchAgents/com.claude.imessage-channel.plist
 ```
 
 ### Things to Know About iMessage
 
-- **No official Apple API** — all iMessage automation reads the Messages database directly. It works, but macOS updates can occasionally break things.
-- **Whitelist contacts** — configure the bot to only respond to specific phone numbers so it doesn't reply to random texts.
+- **macOS only** — iMessage channels only work on a Mac with Messages.app signed in.
 - **SMS (green bubbles)** — to handle SMS too, enable "Text Message Forwarding" from an iPhone (Settings → Messages → Text Message Forwarding).
+- **Security** — the channel auto-detects your Apple ID addresses. Other senders must be explicitly allowed.
 
 ---
 
