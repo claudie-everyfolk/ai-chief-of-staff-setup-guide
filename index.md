@@ -1084,7 +1084,206 @@ Add plugin marketplaces:
 }
 ```
 
-### 13.2: Set Up Browser Automation
+### 13.2: Connect via Telegram
+
+You can add Telegram as another way to talk to your agent — in addition to Slack.
+
+**Step 1: Create a Telegram Bot**
+
+1. Open Telegram on your phone or computer
+2. Search for **@BotFather** (look for the blue checkmark)
+3. Send `/start`, then `/newbot`
+4. Pick a **display name** (e.g., "Claudie")
+5. Pick a **username** — must end in `bot` (e.g., `claudie_every_bot`)
+6. BotFather gives you a **bot token** (a long string like `123456789:ABCdef...`). Save this — you'll need it.
+7. Optional: send `/setdescription` and `/setuserpic` to customize the bot's profile
+
+**Step 2: Install the Bot**
+
+```bash
+# Create the project directory
+mkdir -p ~/Projects/telegram-bot
+cd ~/Projects/telegram-bot
+
+# Set up Python environment
+python3 -m venv venv
+source venv/bin/activate
+pip install python-telegram-bot
+```
+
+**Step 3: Write the Bot Script**
+
+The bot follows the same pattern as the Slack bot: receive a message → spawn `claude -p` → send the response back. The key differences:
+
+- Uses **polling** (no webhook URL needed, no Cloudflare Tunnel required)
+- Telegram has a **4,096 character limit** per message, so long responses need to be split
+- Uses `python-telegram-bot` library (v22+, fully async)
+
+You can write the bot yourself following this pattern, or use an existing project:
+- **[claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)** — full-featured, SQLite sessions, streaming
+- **[ductor](https://github.com/PleasePrompto/ductor)** (`pip install ductor`) — supports Claude CLI, live streaming via message edits
+
+**Step 4: Configure**
+
+Create a `.env` file in the telegram-bot directory:
+
+```
+TELEGRAM_BOT_TOKEN=your-bot-token-from-botfather
+AUTHORIZED_USERS=your_telegram_user_id
+PROJECT_DIR=/Users/YOUR_USERNAME
+CLAUDE_TIMEOUT=600
+```
+
+> **Finding your Telegram user ID:** Message @userinfobot on Telegram — it will reply with your numeric user ID.
+
+**Step 5: Make It Always On**
+
+Create a launchd service, same pattern as the Slack bot:
+
+```bash
+nano ~/Library/LaunchAgents/com.claude.telegram-bot.plist
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude.telegram-bot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USERNAME/Projects/telegram-bot/venv/bin/python</string>
+        <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/Projects/telegram-bot</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Projects/telegram-bot/bot-stderr.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+```
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.claude.telegram-bot.plist
+```
+
+> **No Cloudflare Tunnel needed.** Telegram uses polling mode — the bot calls out to Telegram's servers, not the other way around. Much simpler than Slack.
+
+### 13.3: Connect via iMessage
+
+You can have your agent respond to iMessages — text it from your phone and get a response.
+
+> **MacBook Air only?** No — works on any Mac with Messages.app signed in. But it's especially convenient if the Mac is a MacBook Air that already has Messages set up.
+
+**Step 1: Install imsg**
+
+`imsg` is a command-line tool purpose-built for connecting AI agents to iMessage:
+
+```bash
+brew install steipete/tap/imsg
+```
+
+**Step 2: Grant Permissions**
+
+1. **Full Disk Access** — you already did this in Phase 1 (Step 1.5). This lets the bot read the Messages database.
+2. **Automation permission** — the first time a script tries to send a message via Messages.app, macOS will show a popup asking for permission. Click **Allow**. (Do this before closing the lid!)
+
+**Step 3: Test It Manually**
+
+```bash
+# List recent chats
+imsg chats --limit 5
+
+# Send a test message (replace with a real phone number)
+imsg send --to "+14155551234" --text "Hello from your AI agent!"
+
+# Watch for new incoming messages (Ctrl+C to stop)
+imsg watch --chat-id 1
+```
+
+**Step 4: Set Up the Listener**
+
+There's a ready-made project for this: **[claude-imessage](https://github.com/dvdsgl/claude-imessage)**
+
+It watches for incoming iMessages, spawns `claude -p` sessions, and sends responses back. Configuration goes in `~/.claude-imessage.env`:
+
+```
+IMESSAGE_CONTACT_PHONE=+14155551234
+IMESSAGE_CONTACT_NAME=YourName
+IMESSAGE_CHECK_INTERVAL=1
+```
+
+Or build your own — the pattern is simple:
+1. Poll the Messages database (`~/Library/Messages/chat.db`) for new messages
+2. For each new message from an authorized contact, spawn `claude -p`
+3. Send the response back via `imsg send`
+
+**Step 5: Make It Always On**
+
+Same launchd pattern as everything else:
+
+```bash
+nano ~/Library/LaunchAgents/com.claude.imessage-bot.plist
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude.imessage-bot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USERNAME/Projects/imessage-bot/venv/bin/python</string>
+        <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/Projects/imessage-bot</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Projects/imessage-bot/bot-stderr.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+```
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.claude.imessage-bot.plist
+```
+
+**Limitations to know about:**
+- **No official Apple API** — all iMessage automation reads the Messages database directly. It works, but macOS updates can occasionally break things.
+- **Whitelist contacts** — configure the bot to only respond to specific phone numbers/Apple IDs so it doesn't reply to random texts.
+- **SMS (green bubbles)** — to handle SMS too, enable "Text Message Forwarding" from an iPhone to this Mac (Settings → Messages → Text Message Forwarding).
+- **Messages.app must be signed in** — sign in with an Apple ID in Messages.app before closing the lid.
+
+### 13.4: Memory Across Platforms
+
+> **Does the agent remember things across Slack, Telegram, and iMessage?** Yes — partially. The agent's **persistent memory** (CLAUDE.md, identity, teammate profiles, and learned preferences in `~/.claude/projects/.../memory/`) is shared across ALL platforms. It always knows who it is, who the team is, and everything it's learned. What's NOT shared is the **conversation context** — a Telegram thread won't know what was said in a Slack thread. But any learnings saved to memory from that Slack thread will be available everywhere.
+
+### 13.5: Set Up Browser Automation
 
 For authenticated web browsing (sites where the agent is logged in):
 
@@ -1092,11 +1291,11 @@ For authenticated web browsing (sites where the agent is logged in):
 2. The agent can use `dev-browser --connect` to control Chrome with full session access
 3. See the CLAUDE.md section on browser automation for the full setup
 
-### 13.3: Connect MCP Servers
+### 13.6: Connect MCP Servers
 
 MCP (Model Context Protocol) servers give the agent additional tool access. For example, you can connect Google Workspace MCP servers for richer integration.
 
-### 13.4: Disable Automatic macOS Updates
+### 13.7: Disable Automatic macOS Updates
 
 Automatic updates can restart your Mac unexpectedly:
 
