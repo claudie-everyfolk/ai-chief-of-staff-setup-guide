@@ -5,9 +5,11 @@ title: How to Set Up an AI Chief of Staff from Scratch
 
 # How to Set Up an AI Chief of Staff from Scratch
 
-**A complete, non-technical guide for setting up an always-on AI team member on a Mac mini, connected to Slack.**
+**A complete, non-technical guide for setting up an always-on AI team member on a Mac, connected to Slack.**
 
-This guide walks you through every step — from unboxing a Mac mini to having a fully operational AI agent that responds on Slack, handles email, runs scheduled tasks, and manages your tools.
+This guide walks you through every step — from setting up a dedicated Mac to having a fully operational AI agent that responds on Slack, handles email, runs scheduled tasks, and manages your tools.
+
+> **Mac mini or MacBook Air?** Either works. A Mac mini is ideal (designed to run headless), but a MacBook Air works great too — just keep it plugged in with the lid closed. This guide covers both.
 
 **Time estimate:** A full day if you're doing it for the first time. Faster the second time.
 
@@ -17,7 +19,7 @@ This guide walks you through every step — from unboxing a Mac mini to having a
 
 1. [What You're Building](#what-youre-building)
 2. [What You'll Need Before You Start](#what-youll-need-before-you-start)
-3. [Phase 1: Set Up the Mac Mini](#phase-1-set-up-the-mac-mini)
+3. [Phase 1: Set Up the Mac](#phase-1-set-up-the-mac)
 4. [Phase 2: Install Core Software](#phase-2-install-core-software)
 5. [Phase 3: Create the Agent's Online Accounts](#phase-3-create-the-agents-online-accounts)
 6. [Phase 4: Set Up Claude Code](#phase-4-set-up-claude-code)
@@ -38,7 +40,7 @@ This guide walks you through every step — from unboxing a Mac mini to having a
 ## What You're Building
 
 You're setting up an AI agent that:
-- **Lives on a Mac mini** that's always powered on and connected to the internet
+- **Lives on a dedicated Mac** (Mac mini or MacBook Air) that's always powered on and connected to the internet
 - **Talks to your team via Slack** — they DM it or @mention it in channels
 - **Has its own email address** — it can receive, read, and reply to emails
 - **Has access to Google Workspace** — Gmail, Calendar, Drive, Sheets, Docs
@@ -57,10 +59,10 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
 ## What You'll Need Before You Start
 
 ### Hardware
-- [ ] **Mac mini** (Apple Silicon — M1, M2, M3, or M4)
-- [ ] **Monitor, keyboard, mouse** (for initial setup only — you can disconnect these later)
-- [ ] **Ethernet cable or stable WiFi** (ethernet is more reliable for an always-on machine)
-- [ ] **Power cable** (comes with the Mac mini)
+- [ ] **Mac mini or MacBook Air** (Apple Silicon — M1, M2, M3, or M4). Mac mini is ideal; MacBook Air works too (keep it plugged in, lid closed).
+- [ ] **Monitor, keyboard, mouse** (for initial setup only — you can disconnect these later. If using a MacBook Air, you already have a screen and keyboard built in.)
+- [ ] **Ethernet cable or stable WiFi** (ethernet via USB-C adapter is more reliable for an always-on machine, but WiFi works)
+- [ ] **Power cable** — keep it plugged in 24/7
 
 ### Accounts You'll Create
 - [ ] **Anthropic account** with **Claude Max subscription** ($200/month) — this is the AI brain
@@ -77,7 +79,7 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
 
 ---
 
-## Phase 1: Set Up the Mac Mini
+## Phase 1: Set Up the Mac
 
 ### 1.1: Factory Reset (if previously used)
 
@@ -87,8 +89,8 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
 
 ### 1.2: Initial macOS Setup
 
-1. **Plug in** the Mac mini (power, monitor, keyboard, mouse, ethernet)
-2. **Turn it on** — press the power button on the back
+1. **Plug in** the Mac (power, and for Mac mini: monitor, keyboard, mouse, ethernet)
+2. **Turn it on** — press the power button (on the back for Mac mini, top-right key for MacBook Air)
 3. Walk through the setup wizard:
    - Choose your language and region
    - Connect to WiFi (if not using ethernet)
@@ -101,15 +103,17 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
 
 Open **System Settings** and configure each:
 
-1. **Energy** (or **Energy Saver**):
+1. **Energy** (or **Battery**):
    - Turn ON **"Prevent automatic sleeping when the display is off"**
-   - Turn ON **"Start up automatically after a power failure"**
+   - Turn ON **"Start up automatically after a power failure"** (Mac mini only — MacBook Air doesn't have this option)
    - Turn ON **"Wake for network access"**
    - Turn ON **"Optimized Battery Charging"** (protects battery while plugged in 24/7)
+   - **MacBook Air only:** Under Battery → Options, set "Turn display off on battery when inactive" and "Turn display off on power adapter when inactive" both to **Never**
 
 2. **Lock Screen**:
-   - Set "Turn display off when inactive" to **Never** (or a long time like 3 hours)
-   - Set **"Require password after screen saver"** to **Never** (so Screen Sharing works without auth prompts)
+   - Set **"Start Screen Saver when inactive"** to **Never**
+   - Set "Turn display off when inactive" to **Never**
+   - Set **"Require password after screen saver begins or display is turned off"** to **Never** (critical — otherwise Screen Sharing and the bot get locked out when nobody's at the keyboard)
 
 3. **Users & Groups**:
    - Set **Automatic login** to the user account you created (so after a reboot, it goes straight to the desktop)
@@ -121,13 +125,15 @@ Open **System Settings** and configure each:
 
 ### 1.4: Keep It Awake with the Lid Closed
 
+This is especially important for a **MacBook Air** — by default, closing the lid puts it to sleep. You need to override this.
+
 Open **Terminal** (search for "Terminal" in Spotlight, or find it in Applications → Utilities) and run:
 
 ```bash
 # Prevent sleep entirely — even with the lid closed
 sudo pmset -a disablesleep 1
 
-# Verify it worked
+# Verify it worked (look for "disablesleep 1" in the output)
 pmset -g
 
 # To reverse later: sudo pmset -a disablesleep 0
@@ -135,7 +141,9 @@ pmset -g
 
 > **What's `sudo`?** It means "run as admin." It will ask for the password you set during setup. Type it — nothing will appear on screen as you type, that's normal — and press Enter.
 
-> **Battery note:** Running plugged in 24/7 can cause battery swelling over months/years. "Optimized Battery Charging" helps. Worst case, battery replacement is ~$100-150.
+> **Battery note (MacBook Air):** Running plugged in 24/7 with the lid closed can cause battery swelling over months/years. "Optimized Battery Charging" (turned on earlier) helps by not keeping the battery at 100% all the time. Worst case, battery replacement is ~$100-150. Acceptable trade-off. If you notice the bottom of the MacBook bulging, get the battery replaced.
+
+> **Heat note (MacBook Air):** The MacBook Air has no fan. Running it lid-closed with heavy AI workloads can cause it to get warm. This is normal. It will throttle itself if needed. Keep it on a hard surface (not a pillow or blanket) for ventilation.
 
 ### 1.5: Grant Full Disk Access to Terminal
 
@@ -152,7 +160,7 @@ macOS blocks background processes (like the Slack bot) from accessing files unle
 
 Tailscale creates a private network between your devices — so you can access the Mac from anywhere (home, coffee shop, travelling) without exposing anything to the public internet.
 
-1. Open the **Mac App Store** on the Mac mini, search for **Tailscale**, install it
+1. Open the **Mac App Store**, search for **Tailscale**, install it
 2. Open Tailscale, sign in with your account (Google, GitHub, or Apple ID)
 3. In Tailscale preferences, enable **"Start Tailscale when I log in"**
 4. Note the **Tailscale IP** (something like `100.x.x.x`) — you'll need this later
@@ -169,8 +177,9 @@ tailscale ip -4
 
 1. Plug into power (always — use a reliable outlet, ideally with a UPS/surge protector)
 2. Connect to your home WiFi (or ethernet via USB-C adapter — more reliable)
-3. Close the lid, tuck it somewhere out of the way — a shelf, behind a monitor, wherever
-4. Note the local IP address or hostname (shown in System Settings → Sharing)
+3. **Mac mini:** Disconnect the monitor, keyboard, and mouse. Tuck it somewhere out of the way — a shelf, behind a monitor.
+4. **MacBook Air:** Close the lid. Tuck it somewhere with decent airflow — a desk, shelf, or stand. Keep it plugged in.
+5. Note the local IP address or hostname (shown in System Settings → Sharing)
 
 **From your laptop**, you can now connect:
 - **Screen Sharing**: Open Finder → Go → Connect to Server → type `vnc://TAILSCALE_IP`
@@ -180,7 +189,7 @@ tailscale ip -4
 
 ## Phase 2: Install Core Software
 
-From here on, you can do everything via SSH from your laptop — you don't need a monitor connected to the Mac mini.
+From here on, you can do everything via SSH from your laptop — you don't need a monitor (or an open lid).
 
 ```bash
 ssh claudie@TAILSCALE_IP   # or ssh claudie@your-mac.local if on the same WiFi
@@ -302,7 +311,7 @@ If your company uses Google Workspace:
 1. Go to your **Google Admin console** (admin.google.com)
 2. Create a new user (e.g., `claudie@yourcompany.com`)
 3. Set a password
-4. Log into Gmail with this account in Chrome on the Mac mini to verify it works
+4. Log into Gmail with this account in Chrome on the dedicated Mac to verify it works
 
 If you don't have Google Workspace, you can use a regular Gmail account — create one at gmail.com.
 
@@ -316,7 +325,7 @@ If you don't have Google Workspace, you can use a regular Gmail account — crea
 
 1. Go to **claude.ai** and sign up or log in
 2. Subscribe to **Claude Max** ($200/month) — this gives you flat-rate access to Claude Opus via Claude Code
-3. On the Mac mini, run:
+3. On the dedicated Mac, run:
 
 ```bash
 claude login
@@ -914,7 +923,7 @@ launchctl load ~/Library/LaunchAgents/com.claude.email-sweep.plist
 
 ## Phase 11: Set Up the File Browser
 
-This gives your team a web-based way to browse files on the Mac mini via Tailscale.
+This gives your team a web-based way to browse files on the dedicated Mac via Tailscale.
 
 ### 11.1: Create the File Browser
 
@@ -1070,7 +1079,7 @@ Add plugin marketplaces:
 
 For authenticated web browsing (sites where the agent is logged in):
 
-1. Open Chrome on the Mac mini and log into all relevant accounts
+1. Open Chrome on the dedicated Mac and log into all relevant accounts
 2. The agent can use `dev-browser --connect` to control Chrome with full session access
 3. See the CLAUDE.md section on browser automation for the full setup
 
@@ -1176,7 +1185,7 @@ CLOUDFLARE TUNNEL (bot.yourcompany.com)
       | Secure HTTP -> localhost:3000
       v
 +---------------------------------------------+
-|            MAC MINI (always on)              |
+|            YOUR MAC (always on)              |
 |                                             |
 |  +-------------------------------------+    |
 |  |  SLACK BOT (bot.py on port 3000)    |    |
@@ -1217,7 +1226,7 @@ CLOUDFLARE TUNNEL (bot.yourcompany.com)
 
 | Component | Purpose | Cost |
 |-----------|---------|------|
-| Mac mini | The physical computer | ~$600 one-time |
+| Mac (mini or MacBook Air) | The physical computer | ~$500-1,100 one-time |
 | Claude Max | AI brain (Claude Code) | $200/month |
 | Cloudflare | Secure tunnel (free tier) | Free |
 | Tailscale | Private team network | Free |
