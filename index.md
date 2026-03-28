@@ -95,6 +95,7 @@ The brain behind all of this is **Claude Code** (Anthropic's AI coding agent), r
    - Choose your language and region
    - Connect to WiFi (if not using ethernet)
    - **Create a user account** — use the agent's name (e.g., username: `claudie`, full name: `Claudie`). Pick a short username — you'll type it every time you SSH in.
+   - **Set a password.** macOS requires one for admin tasks like `sudo`. Pick something simple but memorable — you'll need it during setup whenever Terminal asks for your password. You can't skip this; macOS won't let you run admin commands without one.
    - **Sign in with your existing Apple ID** (needed to download Tailscale from the App Store)
    - **When asked about FileVault (disk encryption): Skip it / turn it OFF.** If the Mac restarts after a power loss, FileVault shows a lock screen that needs a keyboard. Since it might restart unattended (lid closed), skip encryption so it boots straight to the desktop.
    - Skip all the "share analytics" options
@@ -139,7 +140,7 @@ pmset -g
 # To reverse later: sudo pmset -a disablesleep 0
 ```
 
-> **What's `sudo`?** It means "run as admin." It will ask for the password you set during setup. Type it — nothing will appear on screen as you type, that's normal — and press Enter.
+> **What's `sudo`?** It means "run as admin." It will ask for the password you set during macOS setup. Type it — nothing will appear on screen as you type (no dots, no stars, nothing — that's normal) — and press Enter. You'll see this password prompt throughout setup whenever a command starts with `sudo`.
 
 > **Battery note (MacBook Air):** Running plugged in 24/7 with the lid closed can cause battery swelling over months/years. "Optimized Battery Charging" (turned on earlier) helps by not keeping the battery at 100% all the time. Worst case, battery replacement is ~$100-150. Acceptable trade-off. If you notice the bottom of the MacBook bulging, get the battery replaced.
 
@@ -243,12 +244,15 @@ claude --version
 
 ### 2.4: Enable Passwordless Sudo for Claude Code
 
-Claude Code needs to run admin commands (installing packages, managing services, etc.) but can't type a password into the interactive prompt. This lets it run admin commands freely:
+Claude Code needs to run admin commands (installing packages, managing services, etc.) but can't type a password into the interactive prompt. This command lets it run admin commands without being asked for a password every time:
 
 ```bash
-# Allow passwordless sudo for your user (replace YOUR_USERNAME with the actual username, e.g., claudie)
+# This will ask for your password one last time — type the password you set during macOS setup
+# Replace YOUR_USERNAME with the actual username (e.g., claudie)
 echo "YOUR_USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/YOUR_USERNAME
 ```
+
+> **Important:** You must have a password set on your macOS account for `sudo` to work at all. If you skipped setting a password during setup, go to **System Settings → Users & Groups → your account → Change Password** and set one now. Once you run the command above, you won't be prompted for it again on this machine.
 
 > **Is this safe?** On a personal laptop, you wouldn't do this. But this is a dedicated AI server behind Tailscale that only you access. The bot needs full system access to be useful — installing tools, managing services, reading logs. This is the right call for this machine.
 
